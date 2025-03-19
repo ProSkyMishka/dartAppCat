@@ -24,6 +24,8 @@
 
 ## Демонстрация
 
+Демонстрация в виде видео, должна отобразиться, но если что находится в папке assets файл Demonstration.mp4
+
 <video width="320" height="240" controls>
   <source src="assets/Demonstration.MP4" type="video/mp4">
 </video>
