@@ -1,11 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/cat.dart';
 import '../views/like_dislike_button.dart';
+import '../views/liked_cats_screen.dart';
 import '../views/swipeable_card.dart';
 import 'detail_screen.dart';
+import '../models/liked_cat.dart';
+import '../domain/like_cubit.dart';
 
 class MainScreen extends StatefulWidget {
   @override
@@ -27,27 +31,45 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       isLoading = true;
     });
-    final url = Uri.parse(
-      'https://api.thecatapi.com/v1/images/search?has_breeds=true&api_key=live_50UpjVLhDSEH9DmBJIILNqR6F65EKQf7jhVSOQGCvRKtUlNIIPSby0rxQeZcZ55Z',
-    );
-    final response = await http.get(url);
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonData = json.decode(response.body);
-      if (jsonData.isNotEmpty) {
+
+    try {
+      final response = await http.get(Uri.parse('https://api.thecatapi.com/v1/images/search?has_breeds=true&api_key=live_50UpjVLhDSEH9DmBJIILNqR6F65EKQf7jhVSOQGCvRKtUlNIIPSby0rxQeZcZ55Z'));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final newCat = Cat.fromJson(data[0]);
         setState(() {
-          currentCat = Cat.fromJson(jsonData[0]);
+          currentCat = newCat;
+          isLoading = false;
         });
+      } else {
+        throw Exception('Ошибка загрузки');
       }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Ошибка сети"),
+          content: const Text("Не удалось загрузить котика. Попробуйте позже."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Ок"),
+            ),
+          ],
+        ),
+      );
     }
-    setState(() {
-      isLoading = false;
-    });
   }
 
+
   void likeCat() {
-    setState(() {
-      likeCounter++;
-    });
+    context.read<LikeCubit>().add(LikedCat(cat: currentCat!, likedAt: DateTime.now()));
+    setState(() => likeCounter++);
     fetchRandomCat();
   }
 
@@ -67,7 +89,20 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Cat Browser')),
+      appBar: AppBar(
+          actions: [
+            IconButton(
+              icon: Icon(Icons.favorite),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => LikedCatsScreen()),
+                );
+              },
+            )
+          ],
+          title: Text('Cat Browser')
+      ),
       body:
           isLoading
               ? Center(child: CircularProgressIndicator())
@@ -104,7 +139,7 @@ class _MainScreenState extends State<MainScreen> {
                     ],
                   ),
                   SizedBox(height: 20),
-                  Text('Лайков: $likeCounter', style: TextStyle(fontSize: 18)),
+                  Text('Лайков: ${context.watch<LikeCubit>().state.likedCats.length}', style: TextStyle(fontSize: 18)),
                 ],
               ),
     );
